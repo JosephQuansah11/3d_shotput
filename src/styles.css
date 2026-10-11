@@ -310,3 +310,27 @@ label.check input { width: auto; }
   border-top: 1px solid var(--border);
 }
 .augment .grid2 { margin-top: 10px; }
+
+/* ---- augmentation preview ---- */
+.augment-preview { margin-top: 12px; }
+.augment-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.augment-preview-head button { padding: 5px 10px; font-size: 12px; }
+.augment-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.augment-preview-grid canvas {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #05080e;
+}

@@ -358,6 +358,7 @@ export default function App() {
             training={trainer.status === 'training'}
             hasModel={!!net}
             progress={trainer.progress}
+            modelSize={config.size}
           />
         </div>
 

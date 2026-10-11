@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Sample } from './dataset';
 import {
-  augmentSample, augmentDataset, mulberry32, NO_AUGMENT, DEFAULT_AUGMENT,
+  augmentSample, augmentDataset, mulberry32, NO_AUGMENT, DEFAULT_AUGMENT, isAugmentEnabled,
 } from './augment';
 
 const ramp = (size: number, withMask: boolean): Sample => {
@@ -82,6 +82,12 @@ describe('augmentation', () => {
     }
     expect(zeros).toBeGreaterThan(0);
     expect(unlabelled).toBe(zeros);
+  });
+
+  it('isAugmentEnabled reflects the policy', () => {
+    expect(isAugmentEnabled(NO_AUGMENT)).toBe(false);
+    expect(isAugmentEnabled(DEFAULT_AUGMENT)).toBe(true);
+    expect(isAugmentEnabled({ ...NO_AUGMENT, noise: 0.01 })).toBe(true);
   });
 
   it('augmentDataset expands by the requested factor', () => {

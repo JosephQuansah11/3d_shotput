@@ -1,14 +1,10 @@
-import { AugmentOptions, DEFAULT_AUGMENT, NO_AUGMENT } from '../data/augment';
+import { AugmentOptions, DEFAULT_AUGMENT, NO_AUGMENT, isAugmentEnabled } from '../data/augment';
 
 export interface AugmentControlsProps {
   value: AugmentOptions;
   onChange: (value: AugmentOptions) => void;
   disabled?: boolean;
 }
-
-const isOn = (v: AugmentOptions): boolean =>
-  v.hflip > 0 || v.brightness > 0 || v.contrast > 0 || v.gamma > 0 ||
-  v.noise > 0 || v.translate > 0 || v.zoom > 0 || v.rotate > 0 || v.cutout > 0;
 
 /**
  * AugmentControls — a compact editor for the augmentation policy.
@@ -17,7 +13,7 @@ const isOn = (v: AugmentOptions): boolean =>
  * of the transformations that preserve the image ↔ depth correspondence.
  */
 export function AugmentControls({ value, onChange, disabled }: AugmentControlsProps) {
-  const enabled = isOn(value);
+  const enabled = isAugmentEnabled(value);
   const set = (patch: Partial<AugmentOptions>) => onChange({ ...value, ...patch });
 
   return (

@@ -86,6 +86,15 @@ The affine transform is applied to image, depth and mask with one shared matrix,
 so pixels stay aligned; masks are warped with nearest-neighbour to stay binary.
 Everything is driven by a seeded PRNG, so runs are reproducible.
 
+### Tuning augmentation by eye
+
+When augmentation is enabled, a **live preview grid** appears under the controls.
+Each tile shows the augmented input (left half) beside its depth target (right
+half), with unsupervised pixels dimmed. The base scene is held fixed while you
+drag the sliders so changes are directly comparable; press *Shuffle* for a new
+base. The preview uses a synthetic scene during base training and your own first
+labelled photo during fine-tuning.
+
 ## Running it
 
 ```bash

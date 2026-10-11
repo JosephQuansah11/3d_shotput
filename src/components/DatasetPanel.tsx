@@ -3,11 +3,12 @@ import { DepthLabeler } from './DepthLabeler';
 import { GrayImage } from '../cv/image';
 import { ingestImageFile, ingestDepthFile, denseMask } from '../data/ingest';
 import {
-  RealSample, newId, makeThumbnail, labelledFraction, STORAGE_SIZE,
+  RealSample, newId, makeThumbnail, labelledFraction, toTrainingSample, STORAGE_SIZE,
 } from '../data/realDataset';
 import { TrainProgress } from '../ai/trainer';
 import { AugmentControls } from './AugmentControls';
-import { AugmentOptions, DEFAULT_AUGMENT } from '../data/augment';
+import { AugmentationPreview } from './AugmentationPreview';
+import { AugmentOptions, DEFAULT_AUGMENT, isAugmentEnabled } from '../data/augment';
 
 export interface FinetuneOptions {
   epochs: number;
@@ -26,6 +27,7 @@ export interface DatasetPanelProps {
   training: boolean;
   hasModel: boolean;
   progress: TrainProgress | null;
+  modelSize: number;
 }
 
 type Pending = { gray: GrayImage; name: string };
@@ -38,7 +40,7 @@ type Pending = { gray: GrayImage; name: string };
  * IndexedDB and can fine-tune the model via transfer learning.
  */
 export function DatasetPanel(props: DatasetPanelProps) {
-  const { samples, onAdd, onDelete, onClear, onFinetune, training, hasModel, progress } = props;
+  const { samples, onAdd, onDelete, onClear, onFinetune, training, hasModel, progress, modelSize } = props;
 
   const photoInput = useRef<HTMLInputElement>(null);
   const depthInput = useRef<HTMLInputElement>(null);
@@ -187,6 +189,13 @@ export function DatasetPanel(props: DatasetPanelProps) {
               onChange={(a) => setOpts({ ...opts, augment: a })}
               disabled={training}
             />
+            {isAugmentEnabled(opts.augment) && (
+              <AugmentationPreview
+                options={opts.augment}
+                size={modelSize}
+                source={samples[0] ? toTrainingSample(samples[0], modelSize) : null}
+              />
+            )}
             <div className="row">
               <button className="primary" disabled={training} onClick={() => onFinetune(opts)}>
                 {training ? 'Training…' : 'Fine-tune model'}

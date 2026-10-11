@@ -1,6 +1,7 @@
 import { TrainProgress } from '../ai/trainer';
 import { AugmentControls } from './AugmentControls';
-import { NO_AUGMENT } from '../data/augment';
+import { NO_AUGMENT, isAugmentEnabled } from '../data/augment';
+import { AugmentationPreview } from './AugmentationPreview';
 import { TrainConfig, TrainStatus } from '../hooks/useTrainer';
 
 export interface TrainingPanelProps {
@@ -79,6 +80,10 @@ export function TrainingPanel(props: TrainingPanelProps) {
         onChange={(a) => setConfig({ ...config, augment: a })}
         disabled={training}
       />
+
+      {isAugmentEnabled(config.augment ?? NO_AUGMENT) && (
+        <AugmentationPreview options={config.augment ?? NO_AUGMENT} size={config.size} />
+      )}
 
       <div className="row">
         <button className="primary" onClick={onTrain} disabled={training}>

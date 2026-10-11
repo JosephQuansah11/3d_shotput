@@ -60,6 +60,11 @@ export const NO_AUGMENT: AugmentOptions = {
   cutout: 0,
 };
 
+/** True when any augmentation is switched on. */
+export const isAugmentEnabled = (v: AugmentOptions): boolean =>
+  v.hflip > 0 || v.brightness > 0 || v.contrast > 0 || v.gamma > 0 ||
+  v.noise > 0 || v.translate > 0 || v.zoom > 0 || v.rotate > 0 || v.cutout > 0;
+
 /** Small deterministic PRNG (mulberry32). */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
