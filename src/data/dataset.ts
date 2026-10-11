@@ -13,6 +13,12 @@ export interface Sample {
   image: Float32Array; // [size*size], luminance in [0,1]
   depth: Float32Array; // [size*size], 1 = near, 0 = far
   size: number;
+  /**
+   * Optional supervision mask (1 = labelled, 0 = ignore). Real photos labelled
+   * with sparse brush strokes set this; synthetic samples leave it undefined
+   * (fully labelled).
+   */
+  mask?: Float32Array | null;
 }
 
 export interface RenderOptions {

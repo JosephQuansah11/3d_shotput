@@ -2,16 +2,18 @@
 /**
  * workers/train.worker.ts — runs training off the main thread.
  *
- * The worker builds a synthetic dataset with the ray tracer, constructs a
- * fresh DepthNet and optimises it with Adam. Weights are posted back to the
- * UI when training finishes so the main thread can run inference.
+ * Two entry points:
+ *  - 'start'    : train a fresh model on ray-traced synthetic scenes.
+ *  - 'finetune' : continue from existing weights (transfer learning) on a mix
+ *                 of real, human-labelled photos and optional synthetic scenes,
+ *                 using a masked loss with a smoothness prior.
  */
 
 import { createDepthNet } from '../ai/depthnet';
 import { train, TrainProgress } from '../ai/trainer';
-import { MSE } from '../ai/loss';
+import { MSE, MaskedMSEWithTV } from '../ai/loss';
 import { Adam } from '../ai/optim';
-import { generateDataset, DEFAULT_RENDER } from '../data/dataset';
+import { generateDataset, DEFAULT_RENDER, Sample } from '../data/dataset';
 
 export interface TrainStartMessage {
   type: 'start';
@@ -22,7 +24,22 @@ export interface TrainStartMessage {
   datasetSize: number;
 }
 
-export type WorkerInMessage = TrainStartMessage | { type: 'stop' };
+export interface FinetuneMessage {
+  type: 'finetune';
+  size: number;
+  baseChannels: number;
+  epochs: number;
+  learningRate: number;
+  lambda: number;
+  /** starting weights for transfer learning, or null for a fresh model */
+  weights: number[][] | null;
+  /** real, human-labelled samples already resampled to `size` */
+  samples: Sample[];
+  /** extra ray-traced scenes to mix in and prevent forgetting */
+  syntheticCount: number;
+}
+
+export type WorkerInMessage = TrainStartMessage | FinetuneMessage | { type: 'stop' };
 
 export type WorkerOutMessage =
   | { type: 'progress'; progress: TrainProgress }
@@ -38,49 +55,56 @@ export type WorkerOutMessage =
 
 let stopRequested = false;
 
+const post = (msg: WorkerOutMessage) => (self as unknown as Worker).postMessage(msg);
+
+function run(
+  msg: TrainStartMessage | FinetuneMessage,
+  dataset: Sample[],
+  loss: MSE | MaskedMSEWithTV,
+): void {
+  const net = createDepthNet({ size: msg.size, baseChannels: msg.baseChannels });
+  if (msg.type === 'finetune' && msg.weights) net.model.importWeights(msg.weights);
+
+  const optimizer = new Adam();
+  const result = train(
+    net.model,
+    loss,
+    optimizer,
+    dataset,
+    { epochs: msg.epochs, learningRate: msg.learningRate, reportEvery: 10 },
+    (progress) => post({ type: 'progress', progress }),
+    () => stopRequested,
+  );
+
+  post({
+    type: 'done',
+    weights: net.model.exportWeights(),
+    history: result.history,
+    bestLoss: result.bestLoss,
+    size: msg.size,
+    baseChannels: msg.baseChannels,
+  });
+}
+
 self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   const msg = event.data;
-
   if (msg.type === 'stop') {
     stopRequested = true;
     return;
   }
 
-  if (msg.type !== 'start') return;
-
   try {
     stopRequested = false;
-
-    const renderOpts = { ...DEFAULT_RENDER, size: msg.size };
-    const dataset = generateDataset(msg.datasetSize, renderOpts);
-
-    const net = createDepthNet({ size: msg.size, baseChannels: msg.baseChannels });
-    const optimizer = new Adam();
-
-    const result = train(
-      net.model,
-      new MSE(),
-      optimizer,
-      dataset,
-      { epochs: msg.epochs, learningRate: msg.learningRate, reportEvery: 10 },
-      (progress) => {
-        (self as unknown as Worker).postMessage({ type: 'progress', progress });
-      },
-      () => stopRequested,
-    );
-
-    (self as unknown as Worker).postMessage({
-      type: 'done',
-      weights: net.model.exportWeights(),
-      history: result.history,
-      bestLoss: result.bestLoss,
-      size: msg.size,
-      baseChannels: msg.baseChannels,
-    });
+    if (msg.type === 'start') {
+      const dataset = generateDataset(msg.datasetSize, { ...DEFAULT_RENDER, size: msg.size });
+      run(msg, dataset, new MSE());
+    } else if (msg.type === 'finetune') {
+      const synthetic = msg.syntheticCount > 0
+        ? generateDataset(msg.syntheticCount, { ...DEFAULT_RENDER, size: msg.size })
+        : [];
+      run(msg, [...msg.samples, ...synthetic], new MaskedMSEWithTV(msg.lambda));
+    }
   } catch (err) {
-    (self as unknown as Worker).postMessage({
-      type: 'error',
-      message: err instanceof Error ? err.message : String(err),
-    });
+    post({ type: 'error', message: err instanceof Error ? err.message : String(err) });
   }
 };

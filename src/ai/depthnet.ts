@@ -24,6 +24,7 @@ export interface DepthNetOptions {
 export interface DepthNet {
   model: Sequential;
   size: number;
+  baseChannels: number;
   describe(): string;
 }
 
@@ -54,6 +55,7 @@ export function createDepthNet(opts: DepthNetOptions): DepthNet {
   return {
     model,
     size,
+    baseChannels: c1,
     describe: () =>
       `DepthNet(${size}x${size}) — ${model.numParams().toLocaleString()} parameters, ` +
       `${model.layers.length} layers`,
@@ -66,9 +68,14 @@ export function predictDepth(net: DepthNet, image: Float32Array): Tensor {
   return net.model.forward(input);
 }
 
-/** Convenience: turn a training Sample into (input, target) tensors. */
-export function sampleToTensors(sample: Sample): { input: Tensor; target: Tensor } {
+/** Convenience: turn a training Sample into (input, target, mask) tensors. */
+export function sampleToTensors(
+  sample: Sample,
+): { input: Tensor; target: Tensor; mask: Tensor | null } {
   const input = new Tensor(Float64Array.from(sample.image), [1, sample.size, sample.size]);
   const target = new Tensor(Float64Array.from(sample.depth), [1, sample.size, sample.size]);
-  return { input, target };
+  const mask = sample.mask
+    ? new Tensor(Float64Array.from(sample.mask), [1, sample.size, sample.size])
+    : null;
+  return { input, target, mask };
 }

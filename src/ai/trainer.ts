@@ -65,10 +65,10 @@ export function train(
       if (shouldStop && shouldStop()) return { history, bestLoss };
 
       const sample = samples[order[s]];
-      const { input, target } = sampleToTensors(sample);
+      const { input, target, mask } = sampleToTensors(sample);
 
       const pred = model.forward(input);
-      const { loss: l, grad } = loss.compute(pred, target);
+      const { loss: l, grad } = loss.compute(pred, target, mask);
 
       model.zeroGrad();
       model.backward(grad);

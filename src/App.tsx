@@ -3,6 +3,10 @@ import { Viewer3D } from './components/Viewer3D';
 import { BufferCanvas } from './components/BufferCanvas';
 import { TrainingPanel } from './components/TrainingPanel';
 import { useTrainer, TrainConfig } from './hooks/useTrainer';
+import { DatasetPanel, FinetuneOptions } from './components/DatasetPanel';
+import {
+  RealSample, getAllRealSamples, putRealSample, deleteRealSample, clearRealSamples, toTrainingSample,
+} from './data/realDataset';
 import { createDepthNet, predictDepth, DepthNet } from './ai/depthnet';
 import { fileToImageData, imageDataToGray, resizeGray, GrayImage } from './cv/image';
 import { sobel, normalizeToUnit, shadingPseudoDepth } from './cv/filters';
@@ -39,6 +43,7 @@ export default function App() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>('points');
   const [frameKey, setFrameKey] = useState(0);
+  const [samples, setSamples] = useState<RealSample[]>([]);
 
   // render style controls
   const [pointSize, setPointSize] = useState(2);
@@ -110,6 +115,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usedModel, sourceGray, config.size]);
 
+  // Load any real-photo samples persisted in IndexedDB.
+  useEffect(() => {
+    getAllRealSamples()
+      .then((list) => setSamples(list.sort((a, b) => b.createdAt - a.createdAt)))
+      .catch(() => undefined);
+  }, []);
+
   // Restore a previously trained model from local storage on first mount.
   useEffect(() => {
     try {
@@ -167,6 +179,80 @@ export default function App() {
       /* surfaced through trainer.error */
     }
   }, [config, trainer]);
+
+  const onAddSample = useCallback(async (sample: RealSample) => {
+    try {
+      await putRealSample(sample);
+    } catch (err) {
+      console.error('failed to persist sample', err);
+    }
+    setSamples((prev) => [sample, ...prev]);
+  }, []);
+
+  const onDeleteSample = useCallback(async (id: string) => {
+    try {
+      await deleteRealSample(id);
+    } catch {
+      /* ignore */
+    }
+    setSamples((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const onClearSamples = useCallback(async () => {
+    try {
+      await clearRealSamples();
+    } catch {
+      /* ignore */
+    }
+    setSamples([]);
+  }, []);
+
+  // Transfer learning: continue from the current weights on real photos.
+  const onFinetune = useCallback(
+    async (opts: FinetuneOptions) => {
+      if (samples.length === 0) return;
+      const size = net && net.size === config.size ? net.size : config.size;
+      const baseChannels = net && net.size === size ? net.baseChannels : config.baseChannels;
+      const realSamples = samples.map((s) => toTrainingSample(s, size));
+      const weights =
+        net && net.size === size && net.baseChannels === baseChannels
+          ? net.model.exportWeights()
+          : null;
+
+      try {
+        const outcome = await trainer.finetune({
+          size,
+          baseChannels,
+          epochs: opts.epochs,
+          learningRate: opts.learningRate,
+          lambda: opts.lambda,
+          weights,
+          samples: realSamples,
+          syntheticCount: opts.includeSynthetic ? Math.max(8, realSamples.length) : 0,
+        });
+
+        const trained = createDepthNet({ size: outcome.size, baseChannels: outcome.baseChannels });
+        trained.model.importWeights(outcome.weights);
+        setNet(trained);
+        const info = `${trained.describe()} — fine-tuned on ${samples.length} real photo(s), best loss ${outcome.bestLoss.toFixed(5)}`;
+        setModelInfo(info);
+        try {
+          const payload: SavedModel = {
+            size: outcome.size,
+            baseChannels: outcome.baseChannels,
+            weights: outcome.weights,
+            modelInfo: info,
+          };
+          localStorage.setItem(MODEL_KEY, JSON.stringify(payload));
+        } catch {
+          /* ignore */
+        }
+      } catch {
+        /* surfaced through trainer.error */
+      }
+    },
+    [samples, config, net, trainer],
+  );
 
   const onForget = useCallback(() => {
     setNet(null);
@@ -258,6 +344,17 @@ export default function App() {
             modelInfo={modelInfo}
             onTrain={onTrain}
             onStop={trainer.stop}
+          />
+
+          <DatasetPanel
+            samples={samples}
+            onAdd={onAddSample}
+            onDelete={onDeleteSample}
+            onClear={onClearSamples}
+            onFinetune={onFinetune}
+            training={trainer.status === 'training'}
+            hasModel={!!net}
+            progress={trainer.progress}
           />
         </div>
 

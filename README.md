@@ -42,6 +42,32 @@ It is trained with Adam to minimise MSE against the ray-traced depth maps. You
 choose the resolution, channel width, epochs, learning rate and dataset size in
 the UI and watch the loss curve fall in real time.
 
+## Learning from real photos
+
+The synthetic ray tracer gets the model started, but you can also teach it from
+actual photographs. The **Real-world data** panel supports two labelling paths:
+
+1. **Upload a depth map** — a greyscale image (white = near; tick *invert* if
+   your data is white = far). Stored as a densely-labelled sample.
+2. **Paint depth strokes** — open a photo in the brush labeler and mark where
+   things are **near** (red) or **far** (blue). Only painted pixels are
+   supervised, so a handful of strokes is enough.
+
+Samples are resampled to a fixed working resolution and persisted in
+**IndexedDB**, so the dataset survives reloads and changing the model size never
+invalidates it.
+
+**Fine-tuning** continues from your existing weights (transfer learning) using a
+masked loss with a total-variation prior:
+
+```
+L = MSE over labelled pixels  +  λ · TV(prediction)
+```
+
+The smoothness term lets the network interpolate between sparse strokes instead
+of fitting noise. You can mix in synthetic scenes to avoid forgetting what the
+base model already knew.
+
 ## Running it
 
 ```bash
