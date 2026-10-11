@@ -68,6 +68,24 @@ The smoothness term lets the network interpolate between sparse strokes instead
 of fitting noise. You can mix in synthetic scenes to avoid forgetting what the
 base model already knew.
 
+## Data augmentation
+
+A handful of photos is not enough to train a network, so every sample can be
+augmented *on the fly, every epoch* (toggle it in the training panels). Only
+transformations that preserve the **image ↔ depth** correspondence are used:
+
+| Augmentation | Applies to | Why |
+| --- | --- | --- |
+| Horizontal flip | image + depth + mask | depth is mirror-consistent |
+| Translate / zoom / rotate | image + depth + mask | invariances to framing |
+| Brightness / contrast / gamma | image only | breaks the lighting ↔ depth shortcut |
+| Additive noise | image only | robustness to sensor noise |
+| Cutout | image (+ mask) | forces the model to use context; hidden pixels lose supervision |
+
+The affine transform is applied to image, depth and mask with one shared matrix,
+so pixels stay aligned; masks are warped with nearest-neighbour to stay binary.
+Everything is driven by a seeded PRNG, so runs are reproducible.
+
 ## Running it
 
 ```bash

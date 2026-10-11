@@ -11,12 +11,17 @@ import { Optimizer } from './optim';
 import { Loss } from './loss';
 import { sampleToTensors } from './depthnet';
 import { Sample } from '../data/dataset';
+import { AugmentOptions, augmentSample, mulberry32 } from '../data/augment';
 
 export interface TrainConfig {
   epochs: number;
   learningRate: number;
   /** how often (in samples) to report progress */
   reportEvery?: number;
+  /** on-the-fly augmentation applied to every sample, every epoch */
+  augment?: AugmentOptions | null;
+  /** seed for the augmentation PRNG (reproducible runs) */
+  augmentSeed?: number;
 }
 
 export interface TrainProgress {
@@ -49,6 +54,7 @@ export function train(
   const history: number[] = [];
   let bestLoss = Infinity;
   const reportEvery = config.reportEvery ?? 25;
+  const rng = mulberry32(config.augmentSeed ?? 1234);
 
   for (let epoch = 0; epoch < config.epochs; epoch++) {
     // Fisher–Yates shuffle so each epoch sees a different order
@@ -64,7 +70,8 @@ export function train(
     for (let s = 0; s < order.length; s++) {
       if (shouldStop && shouldStop()) return { history, bestLoss };
 
-      const sample = samples[order[s]];
+      const base = samples[order[s]];
+      const sample = config.augment ? augmentSample(base, config.augment, rng) : base;
       const { input, target, mask } = sampleToTensors(sample);
 
       const pred = model.forward(input);

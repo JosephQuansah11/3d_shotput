@@ -14,6 +14,7 @@ import { train, TrainProgress } from '../ai/trainer';
 import { MSE, MaskedMSEWithTV } from '../ai/loss';
 import { Adam } from '../ai/optim';
 import { generateDataset, DEFAULT_RENDER, Sample } from '../data/dataset';
+import { AugmentOptions } from '../data/augment';
 
 export interface TrainStartMessage {
   type: 'start';
@@ -22,6 +23,7 @@ export interface TrainStartMessage {
   epochs: number;
   learningRate: number;
   datasetSize: number;
+  augment: AugmentOptions | null;
 }
 
 export interface FinetuneMessage {
@@ -37,6 +39,7 @@ export interface FinetuneMessage {
   samples: Sample[];
   /** extra ray-traced scenes to mix in and prevent forgetting */
   syntheticCount: number;
+  augment: AugmentOptions | null;
 }
 
 export type WorkerInMessage = TrainStartMessage | FinetuneMessage | { type: 'stop' };
@@ -71,7 +74,7 @@ function run(
     loss,
     optimizer,
     dataset,
-    { epochs: msg.epochs, learningRate: msg.learningRate, reportEvery: 10 },
+    { epochs: msg.epochs, learningRate: msg.learningRate, reportEvery: 10, augment: msg.augment },
     (progress) => post({ type: 'progress', progress }),
     () => stopRequested,
   );

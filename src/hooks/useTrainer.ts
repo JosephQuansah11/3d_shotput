@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { TrainProgress } from '../ai/trainer';
 import { Sample } from '../data/dataset';
+import { AugmentOptions } from '../data/augment';
 import type { WorkerInMessage, WorkerOutMessage } from '../workers/train.worker';
 
 export interface TrainConfig {
@@ -9,6 +10,7 @@ export interface TrainConfig {
   epochs: number;
   learningRate: number;
   datasetSize: number;
+  augment: AugmentOptions | null;
 }
 
 export interface FinetuneConfig {
@@ -20,6 +22,7 @@ export interface FinetuneConfig {
   weights: number[][] | null;
   samples: Sample[];
   syntheticCount: number;
+  augment: AugmentOptions | null;
 }
 
 export interface TrainOutcome {

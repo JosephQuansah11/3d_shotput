@@ -302,3 +302,11 @@ label.check input { width: auto; }
   flex-wrap: wrap;
 }
 .labeler-controls label { min-width: 120px; }
+
+/* ---- augmentation controls ---- */
+.augment {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.augment .grid2 { margin-top: 10px; }

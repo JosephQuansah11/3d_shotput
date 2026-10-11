@@ -13,6 +13,7 @@ import { sobel, normalizeToUnit, shadingPseudoDepth } from './cv/filters';
 import { depthToPointCloud, depthToMesh } from './cv/geometry';
 import { SceneGeometry, RenderStyle } from './viewer/renderer';
 import { v3, normalize3 } from './math/vec';
+import { DEFAULT_AUGMENT } from './data/augment';
 
 const MODEL_KEY = 'shotput.model.v1';
 
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: TrainConfig = {
   epochs: 10,
   learningRate: 0.01,
   datasetSize: 80,
+  augment: { ...DEFAULT_AUGMENT },
 };
 
 type DisplayMode = 'points' | 'mesh' | 'wireframe';
@@ -229,6 +231,7 @@ export default function App() {
           weights,
           samples: realSamples,
           syntheticCount: opts.includeSynthetic ? Math.max(8, realSamples.length) : 0,
+          augment: opts.augment,
         });
 
         const trained = createDepthNet({ size: outcome.size, baseChannels: outcome.baseChannels });

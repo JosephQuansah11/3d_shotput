@@ -6,12 +6,15 @@ import {
   RealSample, newId, makeThumbnail, labelledFraction, STORAGE_SIZE,
 } from '../data/realDataset';
 import { TrainProgress } from '../ai/trainer';
+import { AugmentControls } from './AugmentControls';
+import { AugmentOptions, DEFAULT_AUGMENT } from '../data/augment';
 
 export interface FinetuneOptions {
   epochs: number;
   learningRate: number;
   includeSynthetic: boolean;
   lambda: number;
+  augment: AugmentOptions;
 }
 
 export interface DatasetPanelProps {
@@ -45,6 +48,7 @@ export function DatasetPanel(props: DatasetPanelProps) {
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<FinetuneOptions>({
     epochs: 12, learningRate: 0.005, includeSynthetic: true, lambda: 0.05,
+    augment: { ...DEFAULT_AUGMENT },
   });
 
   const pickPhoto = async (file: File) => {
@@ -178,6 +182,11 @@ export function DatasetPanel(props: DatasetPanelProps) {
                 mix synthetic scenes
               </label>
             </div>
+            <AugmentControls
+              value={opts.augment}
+              onChange={(a) => setOpts({ ...opts, augment: a })}
+              disabled={training}
+            />
             <div className="row">
               <button className="primary" disabled={training} onClick={() => onFinetune(opts)}>
                 {training ? 'Training…' : 'Fine-tune model'}
