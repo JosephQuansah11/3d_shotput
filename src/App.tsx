@@ -10,6 +10,15 @@ import { depthToPointCloud, depthToMesh } from './cv/geometry';
 import { SceneGeometry, RenderStyle } from './viewer/renderer';
 import { v3, normalize3 } from './math/vec';
 
+const MODEL_KEY = 'shotput.model.v1';
+
+interface SavedModel {
+  size: number;
+  baseChannels: number;
+  weights: number[][];
+  modelInfo: string;
+}
+
 const DEFAULT_CONFIG: TrainConfig = {
   size: 24,
   baseChannels: 4,
@@ -101,6 +110,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usedModel, sourceGray, config.size]);
 
+  // Restore a previously trained model from local storage on first mount.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(MODEL_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as SavedModel;
+      const restored = createDepthNet({ size: saved.size, baseChannels: saved.baseChannels });
+      restored.model.importWeights(saved.weights);
+      setNet(restored);
+      setModelInfo(saved.modelInfo);
+      setConfig((c) => ({ ...c, size: saved.size, baseChannels: saved.baseChannels }));
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, []);
+
   /* -------------------------------------------------------------- */
   /* Handlers                                                        */
   /* -------------------------------------------------------------- */
@@ -125,13 +150,33 @@ export default function App() {
       const trained = createDepthNet({ size: outcome.size, baseChannels: outcome.baseChannels });
       trained.model.importWeights(outcome.weights);
       setNet(trained);
-      setModelInfo(
-        `${trained.describe()} — best loss ${outcome.bestLoss.toFixed(5)} over ${outcome.history.length} epochs`,
-      );
+      const info = `${trained.describe()} — best loss ${outcome.bestLoss.toFixed(5)} over ${outcome.history.length} epochs`;
+      setModelInfo(info);
+      try {
+        const payload: SavedModel = {
+          size: outcome.size,
+          baseChannels: outcome.baseChannels,
+          weights: outcome.weights,
+          modelInfo: info,
+        };
+        localStorage.setItem(MODEL_KEY, JSON.stringify(payload));
+      } catch {
+        /* storage may be full or unavailable */
+      }
     } catch {
       /* surfaced through trainer.error */
     }
   }, [config, trainer]);
+
+  const onForget = useCallback(() => {
+    setNet(null);
+    setModelInfo('');
+    try {
+      localStorage.removeItem(MODEL_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   /* -------------------------------------------------------------- */
   /* Render                                                          */
@@ -147,7 +192,12 @@ export default function App() {
             your own from-scratch neural network.
           </p>
         </div>
-        <div className="badge">{usedModel ? 'your trained model' : 'baseline pseudo-depth'}</div>
+        <div className="header-actions">
+          <div className="badge">{usedModel ? 'your trained model' : 'baseline pseudo-depth'}</div>
+          {net && (
+            <button onClick={onForget}>Forget model</button>
+          )}
+        </div>
       </header>
 
       <main className="layout">
