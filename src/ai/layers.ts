@@ -143,7 +143,7 @@ export class Conv2D implements Layer {
     const dyM = dy.data; // [outC, rows]
 
     // dW = dY[outC, rows] * col^T[rows, cols]  => [outC, cols]
-    const dW = matmul(dyM, this.outChannels, rows, this.colCache, cols);
+    const dW = matmulNT(dyM, this.outChannels, rows, this.colCache, cols);
     for (let i = 0; i < dW.length; i++) this.W.grad.data[i] += dW[i];
 
     // db = row-sums of dY
